@@ -259,7 +259,7 @@ UniqueTexture Context::createTexture() {
 bool Context::supportsVertexArrays() const {
     static bool blacklisted = []() {
         // Blacklist Adreno 2xx, 3xx as it crashes on glBuffer(Sub)Data
-        const std::string renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        const std::string renderer = reinterpret_cast<const char*>(MBGL_CHECK_ERROR(glGetString(GL_RENDERER)));
         return renderer.find("Adreno (TM) 2") != std::string::npos
          || renderer.find("Adreno (TM) 3") != std::string::npos;
     }();
@@ -282,7 +282,7 @@ bool Context::supportsProgramBinaries() const {
     // https://chromium.googlesource.com/chromium/src/gpu/+/master/config/gpu_driver_bug_list.json#2316
     // Blacklist Vivante GC4000 due to bugs when linking loaded programs:
     // https://github.com/mapbox/mapbox-gl-native/issues/10704
-    const std::string renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    const std::string renderer = reinterpret_cast<const char*>(MBGL_CHECK_ERROR(glGetString(GL_RENDERER)));
     if (renderer.find("Adreno (TM) 3") != std::string::npos
      || renderer.find("Adreno (TM) 4") != std::string::npos
      || renderer.find("Adreno (TM) 5") != std::string::npos
