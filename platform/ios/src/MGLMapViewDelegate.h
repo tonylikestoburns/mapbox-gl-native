@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 
 #import "MGLTypes.h"
-#import "MGLCameraChange.h"
+#import "MGLCameraChangeReason.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

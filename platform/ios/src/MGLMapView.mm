@@ -41,6 +41,8 @@
 #import "MGLMultiPoint_Private.h"
 #import "MGLOfflineStorage_Private.h"
 #import "MGLFoundation_Private.h"
+#import "MGLCameraChangeReason_Private.h"
+
 #import "MGLRendererFrontend.h"
 #import "MGLRendererConfiguration.h"
 
@@ -209,7 +211,9 @@ public:
 @property (nonatomic) UILongPressGestureRecognizer *quickZoom;
 @property (nonatomic) UIPanGestureRecognizer *twoFingerDrag;
 
-@property (nonatomic) MGLCameraChangeReason cameraChangeReason;
+/// Camera change reason handling.
+@property (nonatomic) MGLCameraChangeReasonBitmask cameraChangeReasonBitmask;
+@property (nonatomic, readonly) MGLCameraChangeReason cameraChangeReason;
 
 /// Mapping from reusable identifiers to annotation images.
 @property (nonatomic) NS_MUTABLE_DICTIONARY_OF(NSString *, MGLAnnotationImage *) *annotationImagesByIdentifier;
@@ -555,7 +559,7 @@ public:
     options.padding = padding;
     options.zoom = 0;
 
-    _cameraChangeReason = MGLCameraChangeReasonNone;
+    _cameraChangeReasonBitmask = MGLCameraChangeReasonBitmaskNone;
 
     _mbglMap->jumpTo(options);
     _pendingLatitude = NAN;
@@ -1243,7 +1247,7 @@ public:
 
 - (void)handleCompassTapGesture:(__unused id)sender
 {
-    self.cameraChangeReason |= MGLCameraChangeReasonResetNorth;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskResetNorth;
 
     [self resetNorthAnimated:YES];
 
@@ -1296,6 +1300,8 @@ public:
     // Check delegates first
     if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:reason:)])
     {
+
+
         return [self.delegate mapView:self shouldChangeFromCamera:oldCamera toCamera:newCamera reason:self.cameraChangeReason];
     }
     else if ([self.delegate respondsToSelector:@selector(mapView:shouldChangeFromCamera:toCamera:)])
@@ -1316,7 +1322,7 @@ public:
 
     MGLMapCamera *oldCamera = self.camera;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGesturePan;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGesturePan;
 
     if (pan.state == UIGestureRecognizerStateBegan)
     {
@@ -1386,7 +1392,7 @@ public:
     CGPoint centerPoint = [self anchorPointForGesture:pinch];
     MGLMapCamera *oldCamera = self.camera;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGesturePinch;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskGesturePinch;
 
     if (pinch.state == UIGestureRecognizerStateBegan)
     {
@@ -1485,7 +1491,7 @@ public:
     CGPoint centerPoint = [self anchorPointForGesture:rotate];
     MGLMapCamera *oldCamera = self.camera;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGestureRotate;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureRotate;
 
     if (rotate.state == UIGestureRecognizerStateBegan)
     {
@@ -1671,7 +1677,7 @@ public:
 
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
-        self.cameraChangeReason |= MGLCameraChangeReasonGestureZoomIn;
+        self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskGestureZoomIn;
 
         MGLMapCamera *oldCamera = self.camera;
 
@@ -1708,7 +1714,7 @@ public:
 
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGestureZoomOut;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskGestureZoomOut;
 
     if (twoFingerTap.state == UIGestureRecognizerStateBegan)
     {
@@ -1747,7 +1753,7 @@ public:
 
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGestureQuickZoom;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskGestureOneFingerZoom;
 
     if (quickZoom.state == UIGestureRecognizerStateBegan)
     {
@@ -1792,7 +1798,7 @@ public:
 
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonGesturePitch;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskGestureTwoFingerDrag;
 
     if (twoFingerDrag.state == UIGestureRecognizerStateBegan)
     {
@@ -1980,6 +1986,7 @@ public:
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
+    // If you update these, please check to see if `-cameraChangeReason` needs updating.
     NSArray *validSimultaneousGestures = @[ self.pan, self.pinch, self.rotate ];
 
     return ([validSimultaneousGestures containsObject:gestureRecognizer] && [validSimultaneousGestures containsObject:otherGestureRecognizer]);
@@ -2889,7 +2896,7 @@ public:
 {
     self.userTrackingMode = MGLUserTrackingModeNone;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     [self _setCenterCoordinate:centerCoordinate edgePadding:self.contentInset zoomLevel:zoomLevel direction:direction duration:animated ? MGLAnimationDuration : 0 animationTimingFunction:nil completionHandler:completion];
 }
@@ -2941,7 +2948,7 @@ public:
     
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     _mbglMap->easeTo(cameraOptions, animationOptions);
 }
@@ -2966,7 +2973,7 @@ public:
     if (zoomLevel == self.zoomLevel) return;
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
 
@@ -3057,7 +3064,7 @@ public:
 {
     self.userTrackingMode = MGLUserTrackingModeNone;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     [self _setVisibleCoordinates:coordinates count:count edgePadding:insets direction:direction duration:duration animationTimingFunction:function completionHandler:completion];
 }
@@ -3109,7 +3116,7 @@ public:
     [self willChangeValueForKey:@"visibleCoordinateBounds"];
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     _mbglMap->easeTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"visibleCoordinateBounds"];
@@ -3144,7 +3151,7 @@ public:
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     if (self.userTrackingMode == MGLUserTrackingModeNone)
     {
@@ -3231,7 +3238,7 @@ public:
     [self willChangeValueForKey:@"camera"];
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:edgePadding];
     _mbglMap->easeTo(cameraOptions, animationOptions);
@@ -3290,7 +3297,7 @@ public:
     [self willChangeValueForKey:@"camera"];
     _mbglMap->cancelTransitions();
 
-    self.cameraChangeReason |= MGLCameraChangeReasonProgrammatic;
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonBitmaskProgrammatic;
 
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     _mbglMap->flyTo(cameraOptions, animationOptions);
@@ -3456,8 +3463,60 @@ public:
 
 - (void)resetCameraChangeReason
 {
-    self.cameraChangeReason = MGLCameraChangeReasonNone;
+    self.cameraChangeReasonBitmask = MGLCameraChangeReasonBitmaskNone;
 }
+
+- (MGLCameraChangeReason)cameraChangeReason
+{
+    static NSDictionary *reasonMap = nil;
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        reasonMap =
+        @{
+          // Pan, Rotate and Pinch can all be recognized simultaneously
+          @(MGLCameraChangeReasonBitmaskGesturePan) : @(MGLCameraChangeReasonGesturePan),
+          @(MGLCameraChangeReasonBitmaskGestureRotate) : @(MGLCameraChangeReasonGestureRotate),
+          @(MGLCameraChangeReasonBitmaskGesturePinch) : @(MGLCameraChangeReasonGestureZoom),
+
+          @(MGLCameraChangeReasonBitmaskGesturePan|MGLCameraChangeReasonBitmaskGestureRotate) : @(MGLCameraChangeReasonGesturePanAndRotate),
+          @(MGLCameraChangeReasonBitmaskGesturePan|MGLCameraChangeReasonBitmaskGesturePinch) : @(MGLCameraChangeReasonGesturePanAndZoom),
+          @(MGLCameraChangeReasonBitmaskGestureRotate|MGLCameraChangeReasonBitmaskGesturePinch) : @(MGLCameraChangeReasonGestureRotateAndZoom),
+
+          @(MGLCameraChangeReasonBitmaskGesturePan|MGLCameraChangeReasonBitmaskGestureRotate|MGLCameraChangeReasonBitmaskGesturePinch) : @(MGLCameraChangeReasonGesturePanRotateAndZoom),
+
+          // Tilt
+          @(MGLCameraChangeReasonBitmaskGestureTwoFingerDrag) : @(MGLCameraChangeReasonGestureTilt),
+
+          // Custom gestures that can map to existing reasons
+          @(MGLCameraChangeReasonBitmaskResetNorth|MGLCameraChangeReasonBitmaskProgrammatic) : @(MGLCameraChangeReasonGestureRotate),
+          @(MGLCameraChangeReasonBitmaskGestureZoomIn) : @(MGLCameraChangeReasonGestureZoom),
+          @(MGLCameraChangeReasonBitmaskGestureZoomOut) : @(MGLCameraChangeReasonGestureZoom),
+          @(MGLCameraChangeReasonBitmaskGestureOneFingerZoom) : @(MGLCameraChangeReasonGestureZoom),
+          };
+    });
+
+    // For the end user we provide an enum for the change reason, so we need to map from our internal
+    // mask to this enum. We don't cover all possible combinations since only a subset of gestures
+    // can be recognized simultaneously. If you change -gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:
+    // then please be sure to make sure this method is updated if necessary.
+
+    NSNumber *reason = reasonMap[@(self.cameraChangeReasonBitmask)];
+    if (reason)
+    {
+        return (MGLCameraChangeReason)[reason unsignedIntegerValue];
+    }
+    else if (self.cameraChangeReasonBitmask & MGLCameraChangeReasonBitmaskProgrammatic)
+    {
+        return MGLCameraChangeReasonProgrammatic;
+    }
+    else
+    {
+        NSAssert(0, @"Camera change reason: %ld missing from mapping table.", self.cameraChangeReasonBitmask);
+        return MGLCameraChangeReasonInvalid;
+    }
+}
+
 
 #pragma mark - Styling -
 
@@ -5467,6 +5526,8 @@ public:
 
         if (respondsToSelectorWithReason)
         {
+
+
             [self.delegate mapView:self regionDidChangeWithReason:self.cameraChangeReason animated:animated];
         }
         else if (respondsToSelector)
