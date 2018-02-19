@@ -36,10 +36,8 @@ public:
         assert(!expression::isFeatureConstant(*expression));
     }
     
-    SourceFunction(std::string property_, Stops stops_, optional<T> defaultValue_ = {})
-        : property(std::move(property_)),
-          stops(std::move(stops_)),
-          defaultValue(std::move(defaultValue_)),
+    SourceFunction(std::string property, Stops stops, optional<T> defaultValue_ = {})
+        : defaultValue(std::move(defaultValue_)),
           expression(stops.match([&] (const IdentityStops<T>&) {
               return expression::Convert::fromIdentityFunction(expression::valueTypeToExpressionType<T>(), property);
           }, [&] (const auto& s) {
@@ -70,12 +68,9 @@ public:
 
     const expression::Expression& getExpression() const { return *expression; }
 
-    // retained for compatibility with pre-expression function API
-    std::string property;
-    Stops stops;
+private:
     optional<T> defaultValue;
 
-private:
     std::shared_ptr<expression::Expression> expression;
 };
 

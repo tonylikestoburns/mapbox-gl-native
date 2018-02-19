@@ -58,10 +58,8 @@ public:
         assert(!expression::isFeatureConstant(*expression));
     }
 
-    CompositeFunction(std::string property_, Stops stops_, optional<T> defaultValue_ = {})
-    :   property(std::move(property_)),
-        stops(std::move(stops_)),
-        defaultValue(std::move(defaultValue_)),
+    CompositeFunction(std::string property, Stops stops, optional<T> defaultValue_ = {})
+    :   defaultValue(std::move(defaultValue_)),
         expression(stops.match([&] (const auto& s) {
             return expression::Convert::toExpression(property, s);
         })),
@@ -113,12 +111,11 @@ public:
 
     const expression::Expression& getExpression() const { return *expression; }
 
-    std::string property;
-    Stops stops;
-    optional<T> defaultValue;
     bool useIntegerZoom = false;
     
 private:
+    optional<T> defaultValue;
+
     std::shared_ptr<expression::Expression> expression;
     const variant<const expression::InterpolateBase*, const expression::Step*> zoomCurve;
 };

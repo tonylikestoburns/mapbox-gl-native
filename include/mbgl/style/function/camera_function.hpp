@@ -34,9 +34,8 @@ public:
         assert(expression::isFeatureConstant(*expression));
     }
 
-    CameraFunction(Stops stops_)
-        : stops(std::move(stops_)),
-          expression(stops.match([&] (const auto& s) {
+    CameraFunction(Stops stops)
+        : expression(stops.match([&] (const auto& s) {
             return expression::Convert::toExpression(s);
           })),
           zoomCurve(expression::findZoomCurveChecked(expression.get()))
@@ -78,9 +77,6 @@ public:
     bool useIntegerZoom = false;
 
     const expression::Expression& getExpression() const { return *expression; }
-
-    // retained for compatibility with pre-expression function API
-    Stops stops;
 
 private:
     std::shared_ptr<expression::Expression> expression;
