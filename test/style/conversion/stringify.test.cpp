@@ -1,6 +1,7 @@
 #include <mbgl/test/util.hpp>
 
 #include <mbgl/style/conversion/stringify.hpp>
+#include <mbgl/style/function/convert.hpp>
 #include <mbgl/style/types.hpp>
 #include <mbgl/style/layers/symbol_layer_properties.hpp>
 #include <mbgl/util/rapidjson.hpp>
@@ -80,34 +81,34 @@ TEST(Stringify, Filter) {
 }
 
 TEST(Stringify, CameraFunction) {
-    ASSERT_EQ(stringify(CameraFunction<float>(ExponentialStops<float> { {{0, 1}}, 2 })),
+    ASSERT_EQ(stringify(CameraFunction<float>(expression::Convert::toExpression(ExponentialStops<float> { {{0, 1}}, 2 }))),
         "[\"interpolate\",[\"exponential\",2.0],[\"zoom\"],0.0,1.0]");
-    ASSERT_EQ(stringify(CameraFunction<float>(IntervalStops<float> { {{0, 1}} })),
+    ASSERT_EQ(stringify(CameraFunction<float>(expression::Convert::toExpression(IntervalStops<float> { {{0, 1}} }))),
         "[\"step\",[\"zoom\"],0.0,1.0]");
 }
 
 TEST(Stringify, SourceFunction) {
-    ASSERT_EQ(stringify(SourceFunction<float>("property", ExponentialStops<float> { {{0, 1}}, 2 })),
+    ASSERT_EQ(stringify(SourceFunction<float>(expression::Convert::toExpression("property", ExponentialStops<float> { {{0, 1}}, 2 }))),
         "[\"interpolate\",[\"exponential\",2.0],[\"number\",[\"get\",\"property\"]],0.0,1.0]");
-    ASSERT_EQ(stringify(SourceFunction<float>("property", IntervalStops<float> { {{0, 1}} })),
+    ASSERT_EQ(stringify(SourceFunction<float>(expression::Convert::toExpression("property", IntervalStops<float> { {{0, 1}} }))),
         "[\"step\",[\"number\",[\"get\",\"property\"]],0.0,1.0]");
-    ASSERT_EQ(stringify(SourceFunction<float>("property", CategoricalStops<float> { {{CategoricalValue(true), 1}} })),
+    ASSERT_EQ(stringify(SourceFunction<float>(expression::Convert::toExpression("property", CategoricalStops<float> { {{CategoricalValue(true), 1}} }))),
         "[\"case\",[\"boolean\",[\"get\",\"property\"]],1.0,[\"error\"]]");
-    ASSERT_EQ(stringify(SourceFunction<float>("property", IdentityStops<float> {})),
+    ASSERT_EQ(stringify(SourceFunction<float>(expression::Convert::toExpression("property", IdentityStops<float> {}))),
         "[\"number\",[\"get\",\"property\"]]");
-    ASSERT_EQ(stringify(SourceFunction<float>("property", IdentityStops<float> {}, 0.0f)),
+    ASSERT_EQ(stringify(SourceFunction<float>(expression::Convert::toExpression("property", IdentityStops<float> {}), 0.0f)),
         "[\"number\",[\"get\",\"property\"]]");
 }
 
 TEST(Stringify, CompositeFunction) {
-    ASSERT_EQ(stringify(CompositeFunction<float>("property",
+    ASSERT_EQ(stringify(CompositeFunction<float>(expression::Convert::toExpression("property",
         CompositeExponentialStops<float> {
             {
                 { 0, {{0, 1}} },
                 { 1, {{0, 1}} }
             },
             2
-        }, 0.0f)),
+        }), 0.0f)),
         "[\"interpolate\","
             "[\"exponential\",1.0],"
             "[\"zoom\"],"
@@ -117,7 +118,7 @@ TEST(Stringify, CompositeFunction) {
 
 TEST(Stringify, PropertyValue) {
     ASSERT_EQ(stringify(PropertyValue<float>(1)), "1.0");
-    ASSERT_EQ(stringify(PropertyValue<float>(CameraFunction<float>(ExponentialStops<float> { {{0, 1}}, 2 }))),
+    ASSERT_EQ(stringify(PropertyValue<float>(CameraFunction<float>(expression::Convert::toExpression(ExponentialStops<float> { {{0, 1}}, 2 })))),
         "[\"interpolate\",[\"exponential\",2.0],[\"zoom\"],0.0,1.0]");
 }
 

@@ -1,6 +1,7 @@
 #include <mbgl/test/util.hpp>
 
 #include <mbgl/style/properties.hpp>
+#include <mbgl/style/function/convert.hpp>
 #include <mbgl/renderer/property_evaluator.hpp>
 #include <mbgl/renderer/data_driven_property_evaluator.hpp>
 
@@ -121,10 +122,10 @@ TEST(TransitioningDataDrivenPropertyValue, Evaluate) {
         TimePoint::min()
     };
     
-    SourceFunction<float> sourceFunction = {
+    SourceFunction<float> sourceFunction(expression::Convert::toExpression(
         "property_name",
         IdentityStops<float>()
-    };
+    ));
     
     Transitioning<DataDrivenPropertyValue<float>> t1 {
         DataDrivenPropertyValue<float>(sourceFunction),

@@ -3,6 +3,7 @@
 
 #include <mbgl/renderer/property_evaluator.hpp>
 #include <mbgl/renderer/property_evaluation_parameters.hpp>
+#include <mbgl/style/function/convert.hpp>
 
 using namespace mbgl;
 using namespace mbgl::style;
@@ -31,7 +32,7 @@ TEST(CameraFunction, Constant) {
 
 TEST(CameraFunction, Stops) {
     // Explicit constant slope in fringe regions.
-    CameraFunction<float> slope_1(ExponentialStops<float> { { { 0, 1.5 }, { 6, 1.5 }, { 8, 3 }, { 22, 3 } }, 1.75});
+    CameraFunction<float> slope_1(expression::Convert::toExpression(ExponentialStops<float> { { { 0, 1.5 }, { 6, 1.5 }, { 8, 3 }, { 22, 3 } }, 1.75}));
     EXPECT_EQ(1.5, evaluate(slope_1, 0));
     EXPECT_EQ(1.5, evaluate(slope_1, 4));
     EXPECT_EQ(1.5, evaluate(slope_1, 6));
@@ -43,7 +44,7 @@ TEST(CameraFunction, Stops) {
 
 
     // Test constant values in fringe regions.
-    CameraFunction<float> slope_2(ExponentialStops<float> { { { 6, 1.5 }, { 8, 3 } }, 1.75 });
+    CameraFunction<float> slope_2(expression::Convert::toExpression(ExponentialStops<float> { { { 6, 1.5 }, { 8, 3 } }, 1.75 }));
     EXPECT_EQ(1.5, evaluate(slope_2, 0));
     EXPECT_EQ(1.5, evaluate(slope_2, 4));
     EXPECT_EQ(1.5, evaluate(slope_2, 6));
@@ -55,7 +56,7 @@ TEST(CameraFunction, Stops) {
 
 
     // Explicit constant slope in fringe regions.
-    CameraFunction<float> slope_4(ExponentialStops<float> { { { 0, 2 }, { 8, 10 } }, 1 });
+    CameraFunction<float> slope_4(expression::Convert::toExpression(ExponentialStops<float> { { { 0, 2 }, { 8, 10 } }, 1 }));
     EXPECT_EQ(2, evaluate(slope_4, 0));
     EXPECT_EQ(3, evaluate(slope_4, 1));
     EXPECT_EQ(4, evaluate(slope_4, 2));
@@ -63,14 +64,14 @@ TEST(CameraFunction, Stops) {
     EXPECT_EQ(10, evaluate(slope_4, 8));
 
     // discrete values
-    CameraFunction<std::string> discrete_0(IntervalStops<std::string> { {{3, "string0"}, {6, "string1"}, {9, "string2"}} });
+    CameraFunction<std::string> discrete_0(expression::Convert::toExpression(IntervalStops<std::string> { {{3, "string0"}, {6, "string1"}, {9, "string2"}} }));
     EXPECT_EQ("string0", evaluate(discrete_0, 2));
     EXPECT_EQ("string0", evaluate(discrete_0, 4));
     EXPECT_EQ("string1", evaluate(discrete_0, 7));
     EXPECT_EQ("string2", evaluate(discrete_0, 9));
     EXPECT_EQ("string2", evaluate(discrete_0, 10));
 
-    CameraFunction<bool> discreteBool(IntervalStops<bool> { {{1, false}, {3, true}} });
+    CameraFunction<bool> discreteBool(expression::Convert::toExpression(IntervalStops<bool> { {{1, false}, {3, true}} }));
     EXPECT_FALSE(evaluate(discreteBool, 0));
     EXPECT_FALSE(evaluate(discreteBool, 1));
     EXPECT_FALSE(evaluate(discreteBool, 2));
