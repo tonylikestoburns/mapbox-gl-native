@@ -276,11 +276,8 @@ bool OfflineDatabase::putResource(const Resource& resource,
         return false;
     }
 
-    // We can't use REPLACE because it would change the id value.
-
-    // Begin an immediate-mode transaction to ensure that two writers do not attempt
-    // to INSERT a resource at the same moment.
-    mapbox::sqlite::Transaction transaction(*db, mapbox::sqlite::Transaction::Immediate);
+    // We can't use INSERT OR REPLACE because it provides no way of determining whether the
+    // result was INSERT or whether it was REPLACE, which is required for the return value.
 
     // clang-format off
     mapbox::sqlite::Query updateQuery{ getStatement(
@@ -314,14 +311,16 @@ bool OfflineDatabase::putResource(const Resource& resource,
 
     updateQuery.run();
     if (updateQuery.changes() != 0) {
-        transaction.commit();
         return false;
     }
 
+    // If another connection manages to perform the insert between our UPDATE query above and the
+    // INSERT query below, accept that insert and IGNORE the harmless conflict.
+
     // clang-format off
     mapbox::sqlite::Query insertQuery{ getStatement(
-        "INSERT INTO resources (url, kind, etag, expires, must_revalidate, modified, accessed, data, compressed) "
-        "VALUES                (?1,  ?2,   ?3,   ?4,      ?5,              ?6,       ?7,       ?8,   ?9) ") };
+        "INSERT OR IGNORE INTO resources (url, kind, etag, expires, must_revalidate, modified, accessed, data, compressed) "
+        "VALUES                          (?1,  ?2,   ?3,   ?4,      ?5,              ?6,       ?7,       ?8,   ?9) ") };
     // clang-format on
 
     insertQuery.bind(1, resource.url);
@@ -341,9 +340,8 @@ bool OfflineDatabase::putResource(const Resource& resource,
     }
 
     insertQuery.run();
-    transaction.commit();
 
-    return true;
+    return insertQuery.changes() != 0;
 }
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource::TileData& tile) {
@@ -467,11 +465,8 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
         return false;
     }
 
-    // We can't use REPLACE because it would change the id value.
-
-    // Begin an immediate-mode transaction to ensure that two writers do not attempt
-    // to INSERT a resource at the same moment.
-    mapbox::sqlite::Transaction transaction(*db, mapbox::sqlite::Transaction::Immediate);
+    // We can't use INSERT OR REPLACE because it provides no way of determining whether the
+    // result was INSERT or whether it was REPLACE, which is required for the return value.
 
     // clang-format off
     mapbox::sqlite::Query updateQuery{ getStatement(
@@ -511,14 +506,16 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
 
     updateQuery.run();
     if (updateQuery.changes() != 0) {
-        transaction.commit();
         return false;
     }
 
+    // If another connection manages to perform the insert between our UPDATE query above and the
+    // INSERT query below, accept that insert and IGNORE the harmless conflict.
+
     // clang-format off
     mapbox::sqlite::Query insertQuery{ getStatement(
-        "INSERT INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified, must_revalidate, etag, expires, accessed,  data, compressed) "
-        "VALUES            (?1,           ?2,          ?3, ?4, ?5, ?6,       ?7,              ?8,   ?9,      ?10,       ?11,  ?12)") };
+        "INSERT OR IGNORE INTO tiles (url_template, pixel_ratio, x,  y,  z,  modified, must_revalidate, etag, expires, accessed,  data, compressed) "
+        "VALUES                      (?1,           ?2,          ?3, ?4, ?5, ?6,       ?7,              ?8,   ?9,      ?10,       ?11,  ?12) ") };
     // clang-format on
 
     insertQuery.bind(1, tile.urlTemplate);
@@ -541,9 +538,8 @@ bool OfflineDatabase::putTile(const Resource::TileData& tile,
     }
 
     insertQuery.run();
-    transaction.commit();
 
-    return true;
+    return insertQuery.changes() != 0;
 }
 
 std::vector<OfflineRegion> OfflineDatabase::listRegions() {
