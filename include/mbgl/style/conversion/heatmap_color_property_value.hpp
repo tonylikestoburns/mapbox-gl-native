@@ -3,12 +3,10 @@
 #include <mbgl/style/heatmap_color_property_value.hpp>
 #include <mbgl/style/conversion.hpp>
 #include <mbgl/style/conversion/constant.hpp>
-#include <mbgl/style/conversion/function.hpp>
 #include <mbgl/style/conversion/expression.hpp>
 #include <mbgl/style/expression/value.hpp>
 #include <mbgl/style/expression/is_constant.hpp>
 #include <mbgl/style/expression/is_expression.hpp>
-#include <mbgl/style/expression/find_zoom_curve.hpp>
 
 namespace mbgl {
 namespace style {
