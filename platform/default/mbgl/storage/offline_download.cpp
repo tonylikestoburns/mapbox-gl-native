@@ -24,6 +24,59 @@ namespace mbgl {
 
 using namespace style;
 
+// Generic functions
+
+template <class RegionDefinition>
+Range<uint8_t> coveringZoomRange(const RegionDefinition& definition, style::SourceType type, uint16_t tileSize, const Range<uint8_t>& zoomRange) {
+    double minZ = std::max<double>(util::coveringZoomLevel(definition.minZoom, type, tileSize), zoomRange.min);
+    double maxZ = std::min<double>(util::coveringZoomLevel(definition.maxZoom, type, tileSize), zoomRange.max);
+
+    assert(minZ >= 0);
+    assert(maxZ >= 0);
+    assert(minZ < std::numeric_limits<uint8_t>::max());
+    assert(maxZ < std::numeric_limits<uint8_t>::max());
+    return { static_cast<uint8_t>(minZ), static_cast<uint8_t>(maxZ) };
+}
+
+template <class Geometry, class Fn>
+void tileCover(const Geometry& geometry, uint8_t z, Fn&& fn) {
+    util::TileCover cover(geometry, z);
+    while (cover.hasNext()) {
+        fn(cover.next()->canonical);
+    }
+}
+
+
+template <class Fn>
+void tileCover(const OfflineRegionDefinition& definition, style::SourceType type,
+               uint16_t tileSize, const Range<uint8_t>& zoomRange, Fn&& fn) {
+    const Range<uint8_t> clampedZoomRange = definition.match([&](auto& reg) { return coveringZoomRange(reg, type, tileSize, zoomRange); });
+
+    for (uint8_t z = clampedZoomRange.min; z <= clampedZoomRange.max; z++) {
+        definition.match(
+                [&](const OfflineTilePyramidRegionDefinition& reg){ tileCover(reg.bounds, z, fn); },
+                [&](const OfflineGeometryRegionDefinition& reg){ tileCover(reg.geometry, z, fn); }
+        );
+    }
+}
+
+uint64_t tileCount(const OfflineRegionDefinition& definition, style::SourceType type, uint16_t tileSize, const Range<uint8_t>& zoomRange) {
+
+    const Range<uint8_t> clampedZoomRange = definition.match([&](auto& reg) { return coveringZoomRange(reg, type, tileSize, zoomRange); });
+
+    unsigned long result = 0;;
+    for (uint8_t z = clampedZoomRange.min; z <= clampedZoomRange.max; z++) {
+        result += definition.match(
+                [&](const OfflineTilePyramidRegionDefinition& reg){ return util::tileCount(reg.bounds, z); },
+                [&](const OfflineGeometryRegionDefinition& reg){ return util::tileCount(reg.geometry, z); }
+        );
+    }
+
+    return result;
+}
+
+// OfflineDownload
+
 OfflineDownload::OfflineDownload(int64_t id_,
                                  OfflineRegionDefinition&& definition_,
                                  OfflineDatabase& offlineDatabase_,
@@ -65,7 +118,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
     OfflineRegionStatus result = offlineDatabase.getRegionCompletedStatus(id);
 
     result.requiredResourceCount++;
-    optional<Response> styleResponse = offlineDatabase.get(Resource::style(definition.styleURL));
+    optional<Response> styleResponse = offlineDatabase.get(Resource::style(definition.match([](auto& reg){ return reg.styleURL; })));
     if (!styleResponse) {
         return result;
     }
@@ -80,8 +133,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
 
         auto handleTiledSource = [&] (const variant<std::string, Tileset>& urlOrTileset, const uint16_t tileSize) {
             if (urlOrTileset.is<Tileset>()) {
-                result.requiredResourceCount +=
-                    definition.tileCount(type, tileSize, urlOrTileset.get<Tileset>().zoomRange);
+                result.requiredResourceCount += tileCount(definition, type, tileSize, urlOrTileset.get<Tileset>().zoomRange);
             } else {
                 result.requiredResourceCount += 1;
                 const auto& url = urlOrTileset.get<std::string>();
@@ -90,8 +142,8 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
                     style::conversion::Error error;
                     optional<Tileset> tileset = style::conversion::convertJSON<Tileset>(*sourceResponse->data, error);
                     if (tileset) {
-                        result.requiredResourceCount +=
-                            definition.tileCount(type, tileSize, (*tileset).zoomRange);
+                        result.requiredResourceCount += tileCount(definition, type, tileSize, (*tileset).zoomRange);
+
                     }
                 } else {
                     result.requiredResourceCountIsPrecise = false;
@@ -156,7 +208,7 @@ void OfflineDownload::activateDownload() {
     status = OfflineRegionStatus();
     status.downloadState = OfflineRegionDownloadState::Active;
     status.requiredResourceCount++;
-    ensureResource(Resource::style(definition.styleURL), [&](Response styleResponse) {
+    ensureResource(Resource::style(definition.match([](auto& reg){ return reg.styleURL; })), [&](Response styleResponse) {
         status.requiredResourceCountIsPrecise = true;
 
         style::Parser parser;
@@ -242,8 +294,9 @@ void OfflineDownload::activateDownload() {
         }
 
         if (!parser.spriteURL.empty()) {
-            queueResource(Resource::spriteImage(parser.spriteURL, definition.pixelRatio));
-            queueResource(Resource::spriteJSON(parser.spriteURL, definition.pixelRatio));
+            auto pixelRatio = definition.match([](auto& reg){ return reg.pixelRatio; });
+            queueResource(Resource::spriteImage(parser.spriteURL, pixelRatio));
+            queueResource(Resource::spriteJSON(parser.spriteURL, pixelRatio));
         }
 
         continueDownload();
@@ -291,11 +344,11 @@ void OfflineDownload::queueResource(Resource resource) {
 }
 
 void OfflineDownload::queueTiles(SourceType type, uint16_t tileSize, const Tileset& tileset) {
-    for (const auto& tile : definition.tileCover(type, tileSize, tileset.zoomRange)) {
+    tileCover(definition, type, tileSize, tileset.zoomRange, [&](const auto& tile) {
         status.requiredResourceCount++;
         resourcesRemaining.push_back(
-            Resource::tile(tileset.tiles[0], definition.pixelRatio, tile.x, tile.y, tile.z, tileset.scheme));
-    }
+                Resource::tile(tileset.tiles[0], definition.match([](auto& def){ return def.pixelRatio; }), tile.x, tile.y, tile.z, tileset.scheme));
+    });
 }
 
 void OfflineDownload::ensureResource(const Resource& resource,
