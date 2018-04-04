@@ -227,6 +227,7 @@ public:
     using Bindings = IndexedTuple<
         TypeList<As...>,
         TypeList<optional<typename As::Type::Binding>...>>;
+    
     using NamedLocations = std::vector<std::pair<const std::string, AttributeLocation>>;
 
     using Vertex = detail::Vertex<typename As::Type...>;
@@ -268,6 +269,7 @@ public:
 
     template <class DrawMode>
     static Bindings bindings(const VertexBuffer<Vertex, DrawMode>& buffer) {
+        // figure out how to make sure we have correct dimensions in binders
         return Bindings { As::Type::binding(buffer, TypeIndex<As, As...>::value)... };
     }
 

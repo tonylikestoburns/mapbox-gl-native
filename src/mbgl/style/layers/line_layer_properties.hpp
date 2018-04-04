@@ -32,11 +32,11 @@ struct LineRoundLimit : LayoutProperty<float> {
     static float defaultValue() { return 1; }
 };
 
-struct LineOpacity : DataDrivenPaintProperty<float, attributes::a_opacity, uniforms::u_opacity> {
+struct LineOpacity : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_opacity>, gl::Uniforms<uniforms::u_opacity>> {
     static float defaultValue() { return 1; }
 };
 
-struct LineColor : DataDrivenPaintProperty<Color, attributes::a_color, uniforms::u_color> {
+struct LineColor : DataDrivenPaintProperty<Color, gl::Attributes<attributes::a_color>, gl::Uniforms<uniforms::u_color>> {
     static Color defaultValue() { return Color::black(); }
 };
 
@@ -48,19 +48,19 @@ struct LineTranslateAnchor : PaintProperty<TranslateAnchorType> {
     static TranslateAnchorType defaultValue() { return TranslateAnchorType::Map; }
 };
 
-struct LineWidth : DataDrivenPaintProperty<float, attributes::a_width, uniforms::u_width> {
+struct LineWidth : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_width>, gl::Uniforms<uniforms::u_width>> {
     static float defaultValue() { return 1; }
 };
 
-struct LineGapWidth : DataDrivenPaintProperty<float, attributes::a_gapwidth, uniforms::u_gapwidth> {
+struct LineGapWidth : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_gapwidth>, gl::Uniforms<uniforms::u_gapwidth>> {
     static float defaultValue() { return 0; }
 };
 
-struct LineOffset : DataDrivenPaintProperty<float, attributes::a_offset<1>, uniforms::u_offset> {
+struct LineOffset : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_offset<1>>, gl::Uniforms<uniforms::u_offset>> {
     static float defaultValue() { return 0; }
 };
 
-struct LineBlur : DataDrivenPaintProperty<float, attributes::a_blur, uniforms::u_blur> {
+struct LineBlur : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_blur>, gl::Uniforms<uniforms::u_blur>> {
     static float defaultValue() { return 0; }
 };
 

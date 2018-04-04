@@ -16,15 +16,15 @@ struct FillAntialias : PaintProperty<bool> {
     static bool defaultValue() { return true; }
 };
 
-struct FillOpacity : DataDrivenPaintProperty<float, attributes::a_opacity, uniforms::u_opacity> {
+struct FillOpacity : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_opacity>, gl::Uniforms<uniforms::u_opacity>> {
     static float defaultValue() { return 1; }
 };
 
-struct FillColor : DataDrivenPaintProperty<Color, attributes::a_color, uniforms::u_color> {
+struct FillColor : DataDrivenPaintProperty<Color, gl::Attributes<attributes::a_color>, gl::Uniforms<uniforms::u_color>> {
     static Color defaultValue() { return Color::black(); }
 };
 
-struct FillOutlineColor : DataDrivenPaintProperty<Color, attributes::a_outline_color, uniforms::u_outline_color> {
+struct FillOutlineColor : DataDrivenPaintProperty<Color, gl::Attributes<attributes::a_outline_color>, gl::Uniforms<uniforms::u_outline_color>> {
     static Color defaultValue() { return {}; }
 };
 

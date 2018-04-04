@@ -34,8 +34,8 @@ public:
     using Type = T;
     static constexpr bool IsDataDriven = true;
 
-    using Attribute = A;
-    using Uniform = U;
+    using Attributes = A;
+    using Uniforms = U;
 };
 
 template <class T>

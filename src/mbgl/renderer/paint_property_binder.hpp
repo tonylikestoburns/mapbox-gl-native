@@ -21,6 +21,8 @@ namespace mbgl {
 template <class A>
 using ZoomInterpolatedAttributeType = gl::Attribute<typename A::ValueType, A::Dimensions * 2>;
 
+
+
 inline std::array<float, 1> attributeValue(float v) {
     return {{ v }};
 }
@@ -72,17 +74,17 @@ std::array<float, N*2> zoomInterpolatedAttributeValue(const std::array<float, N>
    Note that the shader source varies depending on whether we're using a uniform or
    attribute. Like GL JS, we dynamically compile shaders at runtime to accomodate this.
 */
-template <class T, class A>
+template <class T, class... As>
 class PaintPropertyBinder {
 public:
-    using Attribute = ZoomInterpolatedAttributeType<A>;
-    using AttributeBinding = typename Attribute::Binding;
+    using Attributes = ZoomInterpolatedAttributeTypes<As...>;
+    using AttributeBindings = typename Attributes::Bindings;
 
     virtual ~PaintPropertyBinder() = default;
 
     virtual void populateVertexVector(const GeometryTileFeature& feature, std::size_t length) = 0;
     virtual void upload(gl::Context& context) = 0;
-    virtual optional<AttributeBinding> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const = 0;
+    virtual optional<AttributeBindings> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const = 0;
     virtual float interpolationFactor(float currentZoom) const = 0;
     virtual T uniformValue(const PossiblyEvaluatedPropertyValue<T>& currentValue) const = 0;
 
@@ -91,11 +93,11 @@ public:
     PaintPropertyStatistics<T> statistics;
 };
 
-template <class T, class A>
-class ConstantPaintPropertyBinder : public PaintPropertyBinder<T, A> {
+template <class T, class... As>
+class ConstantPaintPropertyBinder : public PaintPropertyBinder<T, As...> {
 public:
-    using Attribute = ZoomInterpolatedAttributeType<A>;
-    using AttributeBinding = typename Attribute::Binding;
+    using Attributes = ZoomInterpolatedAttributeTypes<As...>;
+    using AttributeBindings = typename Attributes::Bindings;
 
     ConstantPaintPropertyBinder(T constant_)
         : constant(std::move(constant_)) {
@@ -104,7 +106,7 @@ public:
     void populateVertexVector(const GeometryTileFeature&, std::size_t) override {}
     void upload(gl::Context&) override {}
 
-    optional<AttributeBinding> attributeBinding(const PossiblyEvaluatedPropertyValue<T>&) const override {
+    optional<AttributeBindings> attributeBinding(const PossiblyEvaluatedPropertyValue<T>&) const override {
         return {};
     }
 
@@ -120,15 +122,15 @@ private:
     T constant;
 };
 
-template <class T, class A>
-class SourceFunctionPaintPropertyBinder : public PaintPropertyBinder<T, A> {
+template <class T, class... As>
+class SourceFunctionPaintPropertyBinder : public PaintPropertyBinder<T, As...> {
 public:
-    using BaseAttribute = A;
-    using BaseAttributeValue = typename BaseAttribute::Value;
-    using BaseVertex = gl::detail::Vertex<BaseAttribute>;
+    using BaseAttributes = gl::Attributes<As...>;
+    using BaseAttributeValues = typename BaseAttributes::Values;
+    using BaseVertex = typename BaseAttributes::Vertex;
 
-    using Attribute = ZoomInterpolatedAttributeType<A>;
-    using AttributeBinding = typename Attribute::Binding;
+    using Attributes = ZoomInterpolatedAttributeTypes<As...>;
+    using AttributeBindings = typename Attributes::Bindings;
 
     SourceFunctionPaintPropertyBinder(style::SourceFunction<T> function_, T defaultValue_)
         : function(std::move(function_)),
@@ -148,11 +150,11 @@ public:
         vertexBuffer = context.createVertexBuffer(std::move(vertexVector));
     }
 
-    optional<AttributeBinding> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const override {
+    optional<AttributeBindings> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const override {
         if (currentValue.isConstant()) {
             return {};
         } else {
-            return Attribute::binding(*vertexBuffer, 0, BaseAttribute::Dimensions);
+            return Attributes::bindings(*vertexBuffer, 0, BaseAttributes::Dimensions);
         }
     }
 
@@ -176,16 +178,16 @@ private:
     optional<gl::VertexBuffer<BaseVertex>> vertexBuffer;
 };
 
-template <class T, class A>
-class CompositeFunctionPaintPropertyBinder : public PaintPropertyBinder<T, A> {
+template <class T, class... As>
+class CompositeFunctionPaintPropertyBinder : public PaintPropertyBinder<T, As...> {
 public:
-    using BaseAttribute = A;
-    using BaseAttributeValue = typename BaseAttribute::Value;
+    using BaseAttributes = gl::Attributes<As...>;
+    using BaseAttributeValues = typename BaseAttributes::Values;
 
-    using Attribute = ZoomInterpolatedAttributeType<A>;
-    using AttributeValue = typename Attribute::Value;
-    using AttributeBinding = typename Attribute::Binding;
-    using Vertex = gl::detail::Vertex<Attribute>;
+    using Attributes = ZoomInterpolatedAttributeTypes<As...>;
+    using AttributeValues = typename Attributes::Values;
+    using AttributeBindings = typename Attributes::Bindings;
+    using Vertex = typename Attributes::Vertex;
 
     CompositeFunctionPaintPropertyBinder(style::CompositeFunction<T> function_, float zoom, T defaultValue_)
         : function(std::move(function_)),
@@ -197,7 +199,7 @@ public:
         Range<T> range = function.evaluate(zoomRange, feature, defaultValue);
         this->statistics.add(range.min);
         this->statistics.add(range.max);
-        AttributeValue value = zoomInterpolatedAttributeValue(
+        AttributeValues value = zoomInterpolatedAttributeValue(
             attributeValue(range.min),
             attributeValue(range.max));
         for (std::size_t i = vertexVector.vertexSize(); i < length; ++i) {
@@ -209,11 +211,11 @@ public:
         vertexBuffer = context.createVertexBuffer(std::move(vertexVector));
     }
 
-    optional<AttributeBinding> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const override {
+    optional<AttributeBindings> attributeBinding(const PossiblyEvaluatedPropertyValue<T>& currentValue) const override {
         if (currentValue.isConstant()) {
             return {};
         } else {
-            return Attribute::binding(*vertexBuffer, 0);
+            return Attributes::bindings(*vertexBuffer, 0);
         }
     }
 
@@ -242,18 +244,18 @@ private:
     optional<gl::VertexBuffer<Vertex>> vertexBuffer;
 };
 
-template <class T, class A>
-std::unique_ptr<PaintPropertyBinder<T, A>>
-PaintPropertyBinder<T, A>::create(const PossiblyEvaluatedPropertyValue<T>& value, float zoom, T defaultValue) {
+template <class T, class... As>
+std::unique_ptr<PaintPropertyBinder<T, As...>>
+PaintPropertyBinder<T, As...>::create(const PossiblyEvaluatedPropertyValue<T>& value, float zoom, T defaultValue) {
     return value.match(
-        [&] (const T& constant) -> std::unique_ptr<PaintPropertyBinder<T, A>> {
-            return std::make_unique<ConstantPaintPropertyBinder<T, A>>(constant);
+        [&] (const T& constant) -> std::unique_ptr<PaintPropertyBinder<T, As...>> {
+            return std::make_unique<ConstantPaintPropertyBinder<T, As...>>(constant);
         },
         [&] (const style::SourceFunction<T>& function) {
-            return std::make_unique<SourceFunctionPaintPropertyBinder<T, A>>(function, defaultValue);
+            return std::make_unique<SourceFunctionPaintPropertyBinder<T, As...>>(function, defaultValue);
         },
         [&] (const style::CompositeFunction<T>& function) {
-            return std::make_unique<CompositeFunctionPaintPropertyBinder<T, A>>(function, zoom, defaultValue);
+            return std::make_unique<CompositeFunctionPaintPropertyBinder<T, As...>>(function, zoom, defaultValue);
         }
     );
 }
@@ -263,6 +265,9 @@ struct ZoomInterpolatedAttribute {
     static auto name() { return Attr::name(); }
     using Type = ZoomInterpolatedAttributeType<typename Attr::Type>;
 };
+
+template <class... Attrs>
+using ZoomInterpolatedAttributes = gl::Attributes<ZoomInterpolatedAttribute<Attrs>...>;
 
 template <class Attr>
 struct InterpolationUniform : gl::UniformScalar<InterpolationUniform<Attr>, float> {
@@ -279,7 +284,7 @@ template <class... Ps>
 class PaintPropertyBinders<TypeList<Ps...>> {
 public:
     template <class P>
-    using Binder = PaintPropertyBinder<typename P::Type, typename P::Attribute::Type>;
+    using Binder = PaintPropertyBinder<typename P::Type, typename P::Attributes::Types>;
 
     using Binders = IndexedTuple<
         TypeList<Ps...>,
@@ -307,7 +312,7 @@ public:
     }
 
     template <class P>
-    using Attribute = ZoomInterpolatedAttribute<typename P::Attribute>;
+    using Attribute = ZoomInterpolatedAttributes<typename P::Attributes>;
 
     using Attributes = gl::Attributes<Attribute<Ps>...>;
     using AttributeBindings = typename Attributes::Bindings;
@@ -319,7 +324,7 @@ public:
         };
     }
 
-    using Uniforms = gl::Uniforms<InterpolationUniform<typename Ps::Attribute>..., typename Ps::Uniform...>;
+    using Uniforms = gl::Uniforms<InterpolationUniform<typename Ps::Attributes>..., typename Ps::Uniforms...>;
     using UniformValues = typename Uniforms::Values;
 
     template <class EvaluatedProperties>

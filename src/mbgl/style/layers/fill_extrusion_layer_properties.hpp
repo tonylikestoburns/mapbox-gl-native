@@ -16,7 +16,7 @@ struct FillExtrusionOpacity : PaintProperty<float> {
     static float defaultValue() { return 1; }
 };
 
-struct FillExtrusionColor : DataDrivenPaintProperty<Color, attributes::a_color, uniforms::u_color> {
+struct FillExtrusionColor : DataDrivenPaintProperty<Color, gl::Attributes<attributes::a_color>, gl::Uniforms<uniforms::u_color>> {
     static Color defaultValue() { return Color::black(); }
 };
 
@@ -32,11 +32,11 @@ struct FillExtrusionPattern : CrossFadedPaintProperty<std::string> {
     static std::string defaultValue() { return ""; }
 };
 
-struct FillExtrusionHeight : DataDrivenPaintProperty<float, attributes::a_height, uniforms::u_height> {
+struct FillExtrusionHeight : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_height>, gl::Uniforms<uniforms::u_height>> {
     static float defaultValue() { return 0; }
 };
 
-struct FillExtrusionBase : DataDrivenPaintProperty<float, attributes::a_base, uniforms::u_base> {
+struct FillExtrusionBase : DataDrivenPaintProperty<float, gl::Attributes<attributes::a_base>, gl::Uniforms<uniforms::u_base>> {
     static float defaultValue() { return 0; }
 };
 

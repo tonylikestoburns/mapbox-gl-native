@@ -73,7 +73,7 @@ function attributeUniformType(property, type) {
     }
     const name = attributeNameExceptions[property.name] ||
         property.name.replace(type + '-', '').replace(/-/g, '_');
-    return `attributes::a_${name}${name === 'offset' ? '<1>' : ''}, uniforms::u_${name}`;
+    return `gl::Attributes<attributes::a_${name}${name === 'offset' ? '<1>' : ''}>, gl::Uniforms<uniforms::u_${name}>`;
 }
 
 global.layoutPropertyType = function (property) {
