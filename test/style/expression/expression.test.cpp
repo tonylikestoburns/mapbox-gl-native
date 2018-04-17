@@ -24,11 +24,14 @@ TEST(Expression, IsExpression) {
                 spec["expression_name"].IsObject() &&
                 spec["expression_name"].HasMember("values") &&
                 spec["expression_name"]["values"].IsObject());
-    
+
     const auto& allExpressions = spec["expression_name"]["values"];
-    
+
     for(auto& entry : allExpressions.GetObject()) {
         const std::string name { entry.name.GetString(), entry.name.GetStringLength() };
+        if (name == "line-progress") continue;
+        if (name == "collator") continue;
+        if (name == "resolved-locale") continue;
         JSDocument document;
         document.Parse<0>(R"([")" + name + R"("])");
 
