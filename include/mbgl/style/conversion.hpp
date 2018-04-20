@@ -198,94 +198,110 @@ private:
     using Storage = std::aligned_storage_t<8, 8>;
 #endif
 
-    struct VTable {
-        void (*move) (Storage&& src, Storage& dest);
-        void (*destroy) (Storage&);
+    class VTable {
+    public:
+        virtual ~VTable() {};
 
-        bool (*isUndefined) (const Storage&);
+        virtual void move(Storage&& src, Storage& dest) = 0;
+        virtual void destroy(Storage&) = 0;
 
-        bool        (*isArray)     (const Storage&);
-        std::size_t (*arrayLength) (const Storage&);
-        Convertible (*arrayMember) (const Storage&, std::size_t);
+        virtual bool        isUndefined (const Storage&) = 0;
+        virtual bool        isArray     (const Storage&) = 0;
+        virtual std::size_t arrayLength (const Storage&) = 0;
+        virtual Convertible arrayMember (const Storage&, std::size_t) = 0;
 
-        bool                  (*isObject)     (const Storage&);
-        optional<Convertible> (*objectMember) (const Storage&, const char *);
-        optional<Error>       (*eachMember)   (const Storage&, const std::function<optional<Error> (const std::string&, const Convertible&)>&);
+        virtual bool                  isObject     (const Storage&) = 0;
+        virtual optional<Convertible> objectMember (const Storage&, const char *) = 0;
+        virtual optional<Error>       eachMember   (const Storage&, const std::function<optional<Error> (const std::string&, const Convertible&)>&) = 0;
 
-        optional<bool>        (*toBool)   (const Storage&);
-        optional<float>       (*toNumber) (const Storage&);
-        optional<double>      (*toDouble) (const Storage&);
-        optional<std::string> (*toString) (const Storage&);
-        optional<Value>       (*toValue)  (const Storage&);
+        virtual optional<bool>        toBool   (const Storage&) = 0;
+        virtual optional<float>       toNumber (const Storage&) = 0;
+        virtual optional<double>      toDouble (const Storage&) = 0;
+        virtual optional<std::string> toString (const Storage&) = 0;
+        virtual optional<Value>       toValue  (const Storage&) = 0;
 
         // https://github.com/mapbox/mapbox-gl-native/issues/5623
-        optional<GeoJSON> (*toGeoJSON) (const Storage&, Error&);
+        virtual optional<GeoJSON> toGeoJSON(const Storage&, Error&) = 0;
     };
 
-    // Extracted this function from the table below to work around a GCC bug with differing
-    // visibility settings for capturing lambdas: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80947
-    template <typename T>
-    static auto vtableEachMember(const Storage& s, const std::function<optional<Error>(const std::string&, const Convertible&)>& fn) {
-        return ConversionTraits<T>::eachMember(reinterpret_cast<const T&>(s), [&](const std::string& k, T&& v) {
-            return fn(k, Convertible(std::move(v)));
-        });
-    }
+    template <class T>
+    class VTableForType : public VTable {
+    public:
+        using Traits = ConversionTraits<T>;
+
+        void move(Storage&& src, Storage& dest) override {
+            auto srcValue = reinterpret_cast<T&&>(src);
+            new (static_cast<void*>(&dest)) T(std::move(srcValue));
+            srcValue.~T();
+        }
+
+        void destroy(Storage& s) override {
+            reinterpret_cast<T&>(s).~T();
+        }
+
+        bool isUndefined(const Storage& s) override {
+            return Traits::isUndefined(reinterpret_cast<const T&>(s));
+        }
+
+        bool isArray(const Storage& s) override {
+            return Traits::isArray(reinterpret_cast<const T&>(s));
+        }
+
+        std::size_t arrayLength(const Storage& s) override {
+            return Traits::arrayLength(reinterpret_cast<const T&>(s));
+        }
+
+        Convertible arrayMember(const Storage& s, std::size_t i) override {
+            return Convertible(Traits::arrayMember(reinterpret_cast<const T&>(s), i));
+        }
+
+        bool isObject(const Storage& s) override {
+            return Traits::isObject(reinterpret_cast<const T&>(s));
+        }
+
+        optional<Convertible> objectMember(const Storage& s, const char * key) override {
+            optional<T> member = Traits::objectMember(reinterpret_cast<const T&>(s), key);
+            if (member) {
+                return optional<Convertible>(Convertible(std::move(*member)));
+            } else {
+                return optional<Convertible>();
+            }
+        }
+
+        optional<Error> eachMember(const Storage& s, const std::function<optional<Error>(const std::string&, const Convertible&)>& fn) override {
+            return ConversionTraits<T>::eachMember(reinterpret_cast<const T&>(s), [&](const std::string& k, T&& v) {
+                return fn(k, Convertible(std::move(v)));
+            });
+        }
+
+        optional<bool> toBool(const Storage& s) override {
+            return Traits::toBool(reinterpret_cast<const T&>(s));
+        }
+
+        optional<float> toNumber(const Storage& s) override {
+            return Traits::toNumber(reinterpret_cast<const T&>(s));
+        }
+
+        optional<double> toDouble(const Storage& s) override {
+            return Traits::toDouble(reinterpret_cast<const T&>(s));
+        }
+
+        optional<std::string> toString(const Storage& s) override {
+            return Traits::toString(reinterpret_cast<const T&>(s));
+        }
+
+        optional<Value> toValue(const Storage& s) override {
+            return Traits::toValue(reinterpret_cast<const T&>(s));
+        }
+
+        optional<GeoJSON> toGeoJSON(const Storage& s, Error& err) override {
+            return Traits::toGeoJSON(reinterpret_cast<const T&>(s), err);
+        }
+    };
 
     template <typename T>
     static VTable* vtableForType() {
-        using Traits = ConversionTraits<T>;
-        static VTable vtable = {
-            [] (Storage&& src, Storage& dest) {
-                auto srcValue = reinterpret_cast<T&&>(src);
-                new (static_cast<void*>(&dest)) T(std::move(srcValue));
-                srcValue.~T();
-            },
-            [] (Storage& s) {
-                reinterpret_cast<T&>(s).~T();
-            },
-            [] (const Storage& s) {
-                return Traits::isUndefined(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s) {
-                return Traits::isArray(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s) {
-                return Traits::arrayLength(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s, std::size_t i) {
-                return Convertible(Traits::arrayMember(reinterpret_cast<const T&>(s), i));
-            },
-            [] (const Storage& s) {
-                return Traits::isObject(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s, const char * key) {
-                optional<T> member = Traits::objectMember(reinterpret_cast<const T&>(s), key);
-                if (member) {
-                    return optional<Convertible>(Convertible(std::move(*member)));
-                } else {
-                    return optional<Convertible>();
-                }
-            },
-            vtableEachMember<T>,
-            [] (const Storage& s) {
-                return Traits::toBool(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s) {
-                return Traits::toNumber(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s) {
-                return Traits::toDouble(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s) {
-                return Traits::toString(reinterpret_cast<const T&>(s));
-            },
-            []  (const Storage& s) {
-                return Traits::toValue(reinterpret_cast<const T&>(s));
-            },
-            [] (const Storage& s, Error& err) {
-                return Traits::toGeoJSON(reinterpret_cast<const T&>(s), err);
-            }
-        };
+        static VTableForType<T> vtable;
         return &vtable;
     }
 
