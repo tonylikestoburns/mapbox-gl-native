@@ -111,8 +111,7 @@ run-benchmark-%: benchmark
 	$(MACOS_OUTPUT_PATH)/$(BUILDTYPE)/mbgl-benchmark --benchmark_filter=$* ${BENCHMARK_ARGS}
 
 .PHONY: node-benchmark
-node-benchmark: $(MACOS_PROJ_PATH)
-	set -o pipefail && $(MACOS_XCODEBUILD) -scheme 'node-benchmark' build $(XCPRETTY)
+node-benchmark: node
 
 .PHONY: run-node-benchmark
 run-node-benchmark: node-benchmark
@@ -702,6 +701,7 @@ codestyle:
 .PHONY: clean
 clean:
 	-rm -rf ./build \
+	        ./lib/*.node \
 	        ./platform/android/gradle/configuration.gradle \
 	        ./platform/android/MapboxGLAndroidSDK/build \
 	        ./platform/android/MapboxGLAndroidSDK/.externalNativeBuild \
