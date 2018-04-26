@@ -1281,7 +1281,7 @@ public:
     {
         [self setUserTrackingMode:MGLUserTrackingModeNone animated:NO];
     }
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 }
 
 - (void)notifyGestureDidBegin {
@@ -1331,7 +1331,7 @@ public:
 {
     if ( ! self.isScrollEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     MGLMapCamera *oldCamera = self.camera;
 
@@ -1400,7 +1400,7 @@ public:
 {
     if ( ! self.isZoomEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     CGPoint centerPoint = [self anchorPointForGesture:pinch];
     MGLMapCamera *oldCamera = self.camera;
@@ -1501,7 +1501,7 @@ public:
 {
     if ( ! self.isRotateEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     CGPoint centerPoint = [self anchorPointForGesture:rotate];
     MGLMapCamera *oldCamera = self.camera;
@@ -1706,7 +1706,7 @@ public:
 {
     if ( ! self.isZoomEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     if (doubleTap.state == UIGestureRecognizerStateEnded)
     {
@@ -1747,7 +1747,7 @@ public:
 
     if (_mbglMap->getZoom() == _mbglMap->getMinZoom()) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureZoomOut;
 
@@ -1786,7 +1786,7 @@ public:
 {
     if ( ! self.isZoomEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureOneFingerZoom;
 
@@ -1831,7 +1831,7 @@ public:
 {
     if ( ! self.isPitchEnabled) return;
 
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonGestureTilt;
 
@@ -2991,7 +2991,7 @@ public:
         return;
     }
     
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3016,7 +3016,7 @@ public:
 - (void)setZoomLevel:(double)zoomLevel animated:(BOOL)animated
 {
     if (zoomLevel == self.zoomLevel) return;
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3159,7 +3159,7 @@ public:
     }
     
     [self willChangeValueForKey:@"visibleCoordinateBounds"];
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3192,7 +3192,7 @@ public:
 - (void)_setDirection:(CLLocationDirection)direction animated:(BOOL)animated
 {
     if (direction == self.direction) return;
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     CGFloat duration = animated ? MGLAnimationDuration : 0;
 
@@ -3281,7 +3281,7 @@ public:
     }
 
     [self willChangeValueForKey:@"camera"];
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
@@ -3340,13 +3340,19 @@ public:
     }
 
     [self willChangeValueForKey:@"camera"];
-    _mbglMap->cancelTransitions();
+    [self cancelTransitions];
 
     self.cameraChangeReasonBitmask |= MGLCameraChangeReasonProgrammatic;
 
     mbgl::CameraOptions cameraOptions = [self cameraOptionsObjectForAnimatingToCamera:camera edgePadding:insets];
     _mbglMap->flyTo(cameraOptions, animationOptions);
     [self didChangeValueForKey:@"camera"];
+}
+
+- (void)cancelTransitions {
+    self.cameraChangeReasonBitmask |= MGLCameraChangeReasonTransitionCancelled;
+    _mbglMap->cancelTransitions();
+    self.cameraChangeReasonBitmask &= ~MGLCameraChangeReasonTransitionCancelled;
 }
 
 - (MGLMapCamera *)cameraThatFitsCoordinateBounds:(MGLCoordinateBounds)bounds
