@@ -8,10 +8,14 @@ Mapbox welcomes participation and contributions from everyone. Please read [CONT
 
 * Deprecated `+[NSExpression featurePropertiesVariableExpression]` use `+[NSExpression featureAttributesVariableExpression]` instead. ([#11748](https://github.com/mapbox/mapbox-gl-native/pull/11748))
 
+
+### Annotations
+* Fixed an issue where selecting an onscreen annotation could move the map unintentionally. ([#11731](https://github.com/mapbox/mapbox-gl-native/pull/11731))
+* Fixed an issue where annotation views could become distorted if `rotatesToMatchCamera` is `YES`. ([#11756](https://github.com/mapbox/mapbox-gl-native/issues/11756))
+
 ### Other
 
 * Fixed an issue where `-[MGLMapView metersPerPixelAtLatitude:]` was removed, but not marked as unavailable. ([#11765](https://github.com/mapbox/mapbox-gl-native/pull/11765))
-* Fixed an issue where selecting an onscreen annotation could move the map unintentionally. ([#11731](https://github.com/mapbox/mapbox-gl-native/pull/11731))
 
 ## 4.0.0 - April 19, 2018
 
