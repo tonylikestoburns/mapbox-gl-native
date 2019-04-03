@@ -25,3 +25,4 @@ Additional Mapbox GL Native–based libraries for **hybrid applications** are de
 | [Xamarin](https://components.xamarin.com/view/mapboxsdk/) | :white_check_mark: | :white_check_mark: | Xamarin |
 
 If your platform or hybrid application framework isn’t listed here, consider embedding [Mapbox GL JS](https://github.com/mapbox/mapbox-gl-js) using the standard Web capabilities on your platform.
+
