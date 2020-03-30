@@ -20,7 +20,7 @@
   "devDependencies": {
     "aws-sdk": "^2.3.5",
     "csscolorparser": "^1.0.2",
-    "ejs": "^2.4.1",
+    "ejs": "^3.0.2",
     "express": "^4.11.1",
     "flow-remove-types": "^1.2.1",
     "json-stringify-pretty-compact": "^1.0.4",
